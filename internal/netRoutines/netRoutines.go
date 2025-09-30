@@ -19,10 +19,14 @@ func fetchWord(ctx context.Context) <-chan string {
 				log.Fatal(err)
 				return
 			}
-			defer resp.Body.Close()
 
 			body, _ := io.ReadAll(resp.Body)
 			fmt.Println(string(body))
+			err = resp.Body.Close()
+			if err != nil {
+				log.Println(err)
+				continue
+			}
 
 			select {
 			case <-ctx.Done():
