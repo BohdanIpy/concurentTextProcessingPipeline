@@ -11,7 +11,7 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, time.Second*3)
 	defer cancel()
-	for word := range netRoutines.FetchWord(ctx) {
+	for word := range netRoutines.FetchWord(ctx, "" /*placeholder for now*/) {
 		fmt.Println(word)
 	}
 }
