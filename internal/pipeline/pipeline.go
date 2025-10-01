@@ -2,10 +2,29 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"math/rand"
 	"strings"
 	"time"
 )
+
+func extractWord(body string) (string, error) {
+	var words []string
+	bodyAsByte := []byte(body)
+	if err := json.Unmarshal(bodyAsByte, &words); err == nil && len(words) > 0 {
+		return words[0], nil
+	}
+
+	var entries []struct {
+		Word string `json:"word"`
+	}
+	if err := json.Unmarshal(bodyAsByte, &entries); err == nil && len(entries) > 0 {
+		return entries[0].Word, nil
+	}
+
+	return "", fmt.Errorf("unrecognized response: %s", string(body))
+}
 
 func GenerateSentences(ctx context.Context, words <-chan string) <-chan string {
 	sentences := make(chan string)
