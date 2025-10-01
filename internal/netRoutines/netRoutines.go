@@ -8,12 +8,10 @@ import (
 	"time"
 )
 
-func FetchWord(ctx context.Context) <-chan string {
+func FetchWord(ctx context.Context, url string) <-chan string {
 	words := make(chan string, 2)
 	go func() {
 		defer close(words)
-
-		url := "https://random-word.ryanrk.com/api/en/word/random"
 
 		for {
 
@@ -42,9 +40,9 @@ func FetchWord(ctx context.Context) <-chan string {
 			case <-ctx.Done():
 				return
 			case words <- string(body):
-				log.Printf("Fetched word, written into chanel: %s", string(body))
+				log.Printf("Fetched word from \"%s\", written into chanel: %s", url, string(body))
 			}
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(1 * time.Second)
 		}
 	}()
 	return words
