@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-func FanInSentences[T any](ctx context.Context, channels ...<-chan T) <-chan T {
+func FanIn[T any](ctx context.Context, channels ...<-chan T) <-chan T {
 	fanIn := make(chan T, len(channels))
 	var wg sync.WaitGroup
 	transfer := func(c <-chan T) {
