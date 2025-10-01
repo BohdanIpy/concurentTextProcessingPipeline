@@ -72,3 +72,57 @@ func SplitSentences(ctx context.Context, sentences <-chan string) <-chan string 
 	}()
 	return words
 }
+
+func FilterWords(ctx context.Context, words <-chan string, minLen int) <-chan string {
+	filteredWords := make(chan string)
+	go func() {
+		defer close(filteredWords)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case word, ok := <-words:
+				if !ok {
+					return
+				}
+				if len(word) < minLen {
+					select {
+					case <-ctx.Done():
+						return
+					case filteredWords <- word:
+					}
+				}
+
+			}
+		}
+	}()
+	return filteredWords
+}
+
+func TakeWords(ctx context.Context, words <-chan string, numberOfTakes int) <-chan string {
+	out := make(chan string, numberOfTakes)
+	go func() {
+		defer close(out)
+		for i := 0; i < numberOfTakes; i++ {
+			select {
+			case <-ctx.Done():
+				return
+			case w, ok := <-words:
+				if !ok {
+					return
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case out <- w:
+				}
+			}
+		}
+	}()
+	return out
+}

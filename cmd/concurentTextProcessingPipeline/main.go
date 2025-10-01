@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/BohdanIpy/concurentTextProcessingPipeline/internal/netRoutines"
+	"runtime"
 	"time"
 )
 
@@ -26,5 +27,7 @@ func main() {
 	}
 
 	time.Sleep(time.Second * 10)
-
+	cancel()
+	time.Sleep(time.Second * 10)
+	fmt.Println("----", runtime.NumGoroutine())
 }
