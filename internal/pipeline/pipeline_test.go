@@ -12,30 +12,35 @@ import (
 var r *rand.Rand
 
 func init() {
-	r = rand.New(rand.NewSource(time.Now().UnixNano()))
+	r = rand.New(rand.NewSource(42))
 }
 
-func TestParingApi1(t *testing.T) {
+func TestParseJsonBody(t *testing.T) {
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	words := [4]string{"one", "two", "three", "four"}
 	pos := r.Intn(4)
+	// testing data
 	word := fmt.Sprintf("[\"%s\"]", words[pos])
-	word, ok := extractWord(word)
-	if ok != nil {
-		t.Fatal(ok)
-	}
-	if word != words[pos] {
-		t.Error(word)
-	}
-}
-
-func TestParsingApi2(t *testing.T) {
 	data := `[{"word": "hefte","length": 5,"category": "wordle","language": "en"}]`
-	word, ok := extractWord(data)
-	if ok != nil {
-		t.Fatal(ok)
-	}
-	if word != "hefte" {
-		t.Error(word)
+	//
+	channelData := make(chan string)
+
+	result := ParseJsonBody(ctx, channelData)
+
+	go func() {
+		defer close(channelData)
+		channelData <- data
+		channelData <- word
+	}()
+
+	for res := range result {
+		if res != "hefte" && res != words[pos] {
+			t.Fatal("Not parsed properly", res)
+		} else {
+			fmt.Println(res)
+		}
 	}
 }
 
@@ -44,8 +49,7 @@ func TestGeneratingSentences(t *testing.T) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	words := []string{"[\"one\"]", "[\"two\"]", "[\"three\"]", "[\"four\"]"}
-	parsedWords := []string{"one", "two", "three", "four"}
+	words := []string{"one", "two", "three", "four"}
 
 	compareArrayToSentence := func(arr []string, elem string) bool {
 		for a := range arr {
@@ -76,11 +80,102 @@ func TestGeneratingSentences(t *testing.T) {
 			t.Fatal("Sentence too long or too short")
 		}
 		for _, word := range splitSentence {
-			if !compareArrayToSentence(parsedWords, word) {
+			if !compareArrayToSentence(words, word) {
 				fmt.Println(splitSentence)
 				t.Fatal("Some extra word present in the sentence")
 			}
 		}
 	}
+}
 
+func generateSentences() (string, []string) {
+	words := []string{"one", "two", "three", "four"}
+	var builder strings.Builder
+	arr := make([]string, r.Intn(7)+3)
+	for i := 0; i < len(arr); i++ {
+		word := words[r.Intn(len(words))]
+		arr[i] = word
+		if i != 0 {
+			builder.WriteString(" ")
+		}
+		builder.WriteString(word)
+	}
+	return builder.String(), arr
+}
+
+func removeOccurenceInArray[T comparable](arr []T, target T) ([]T, bool) {
+	for i, v := range arr {
+		if v == target {
+			return append(arr[:i], arr[i+1:]...), true
+		}
+	}
+	return arr, false
+}
+
+func TestSplitSentences(t *testing.T) {
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	for i := 0; i < 10; i++ {
+		toParse, arrRes := generateSentences()
+		querChan := make(chan string, 1)
+		querChan <- toParse
+		resChan := SplitSentences(ctx, querChan)
+		close(querChan)
+		for res := range resChan {
+			newArrRes, present := removeOccurenceInArray(arrRes, res)
+			if !present {
+				t.Fatalf("Unexpected word %q, remaining expected: %v", res, arrRes)
+			}
+			arrRes = newArrRes
+		}
+		if len(arrRes) != 0 {
+			t.Fatalf("Not all words were emitted, leftover: %v", arrRes)
+		}
+	}
+}
+
+func wordsGenerator(ctx context.Context) <-chan string {
+	words := []string{"55555", "1", "22", "333", "4444", "666666", "7777777", "999999999"}
+	channelWords := make(chan string)
+	go func() {
+		defer close(channelWords)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				channelWords <- words[r.Intn(len(words))]
+			}
+		}
+	}()
+	return channelWords
+}
+
+func TestFilterWords(t *testing.T) {
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	const minLen = 4
+	for w := range FilterWords(ctx, wordsGenerator(ctx), minLen) {
+		if len(w) < minLen {
+			t.Fatalf("The word is shorter than min len: %s", w)
+		}
+	}
+}
+
+func TestTakeWords(t *testing.T) {
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	current := 0
+	const sizeOfTakes = 50
+	for range TakeWords(ctx, wordsGenerator(ctx), sizeOfTakes) {
+		current++
+	}
+	if current != sizeOfTakes {
+		t.Fatalf("Should have taken %d words, but got %d", sizeOfTakes, current)
+	}
 }

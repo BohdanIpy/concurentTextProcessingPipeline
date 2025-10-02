@@ -136,7 +136,7 @@ func FilterWords(ctx context.Context, words <-chan string, minLen int) <-chan st
 				if !ok {
 					return
 				}
-				if len(word) < minLen {
+				if len(word) > minLen {
 					select {
 					case <-ctx.Done():
 						return
