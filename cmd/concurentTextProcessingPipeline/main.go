@@ -3,48 +3,43 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/BohdanIpy/concurentTextProcessingPipeline/internal/fanInOut"
-	"github.com/BohdanIpy/concurentTextProcessingPipeline/internal/netRoutines"
-	"github.com/BohdanIpy/concurentTextProcessingPipeline/internal/pipeline"
-	"runtime"
+	"github.com/BohdanIpy/concurentTextProcessingPipeline/internal/runner"
 	"time"
 )
 
 func main() {
+	// Comment if you want logs
+	// log.SetOutput(io.Discard)
+
 	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, time.Second*3)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	urls := []string{
-		//"https://random-word.ryanrk.com/api/en/word/random",
-		"https://random-word-api.vercel.app/api?words=1",
-		"https://random-words-api.kushcreates.com/api?language=en&words=1",
+		// Uncoment to recv an API from local server
+		// "https://random-word.ryanrk.com/api/en/word/random",
+		// "https://random-word-api.vercel.app/api?words=1",
+		// "https://random-words-api.kushcreates.com/api?language=en&words=1",
+		//  Your custom API "http://localhost:8080/api/v1/array",
 	}
 
-	channelsFetchedSentences := make([]<-chan string, len(urls))
-	for i, url := range urls {
-		channelsFetchedSentences[i] = pipeline.GenerateSentences(ctx, netRoutines.FetchWord(ctx, url))
-	}
-	channelFannedSentences := fanInOut.FanIn(ctx, channelsFetchedSentences...)
-
-	numCPU := runtime.NumCPU()
-	channelsSplit := make([]<-chan string, numCPU)
-	for i := 0; i < numCPU; i++ {
-		channelsSplit[i] = pipeline.SplitSentences(ctx, channelFannedSentences)
-	}
-	channelFannedWords := fanInOut.FanIn(ctx, channelsFetchedSentences...)
-
-	channelsFilteringWords := make([]<-chan string, numCPU)
-	for i := 0; i < numCPU; i++ {
-		channelsFilteringWords[i] = pipeline.FilterWords(ctx, channelFannedWords, 3)
-	}
-
-	channelWordsForTaken := fanInOut.FanIn(ctx, channelsFilteringWords...)
-	for word := range pipeline.TakeWords(ctx, channelWordsForTaken, 5) {
+	const numOfTakes = 4
+	const minLen = 3
+	counter := 0
+	for word := range runner.Run(ctx, urls, numOfTakes, minLen) {
 		fmt.Println(word)
+		counter++
 	}
+	fmt.Println(counter)
 
-	time.Sleep(time.Second * 10)
 	cancel()
-	time.Sleep(time.Second * 10)
-	fmt.Println("----", runtime.NumGoroutine())
+	time.Sleep(time.Second * 30)
+	/*
+		Uncoment to check if all the created goroutines are destroyed
+	*/
+	/*
+		fmt.Println("----", runtime.NumGoroutine())
+		buf := make([]byte, 1<<16)
+		n := runtime.Stack(buf, true)
+		fmt.Println(string(buf[:n]))
+	*/
 }

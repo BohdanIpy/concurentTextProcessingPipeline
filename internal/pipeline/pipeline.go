@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ func extractWord(body string) (string, error) {
 	var words []string
 	bodyAsByte := []byte(body)
 	if err := json.Unmarshal(bodyAsByte, &words); err == nil && len(words) > 0 {
+		log.Println("Parsed, get: ", words[0])
 		return words[0], nil
 	}
 
@@ -20,6 +22,7 @@ func extractWord(body string) (string, error) {
 		Word string `json:"word"`
 	}
 	if err := json.Unmarshal(bodyAsByte, &entries); err == nil && len(entries) > 0 {
+		log.Println("Parsed, get: ", entries[0].Word)
 		return entries[0].Word, nil
 	}
 
@@ -27,7 +30,7 @@ func extractWord(body string) (string, error) {
 }
 
 func ParseJsonBody(ctx context.Context, body <-chan string) <-chan string {
-	word := make(chan string, 1)
+	word := make(chan string, 2)
 	go func() {
 		defer close(word)
 		for {
@@ -54,7 +57,7 @@ func ParseJsonBody(ctx context.Context, body <-chan string) <-chan string {
 }
 
 func GenerateSentences(ctx context.Context, words <-chan string) <-chan string {
-	sentences := make(chan string)
+	sentences := make(chan string, 2)
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	go func() {
 		defer close(sentences)
@@ -95,7 +98,7 @@ func GenerateSentences(ctx context.Context, words <-chan string) <-chan string {
 }
 
 func SplitSentences(ctx context.Context, sentences <-chan string) <-chan string {
-	words := make(chan string, 10)
+	words := make(chan string, 12)
 	go func() {
 		defer close(words)
 		for {
@@ -120,7 +123,7 @@ func SplitSentences(ctx context.Context, sentences <-chan string) <-chan string 
 }
 
 func FilterWords(ctx context.Context, words <-chan string, minLen int) <-chan string {
-	filteredWords := make(chan string)
+	filteredWords := make(chan string, 2)
 	go func() {
 		defer close(filteredWords)
 		for {
@@ -151,7 +154,7 @@ func FilterWords(ctx context.Context, words <-chan string, minLen int) <-chan st
 }
 
 func TakeWords(ctx context.Context, words <-chan string, numberOfTakes int) <-chan string {
-	out := make(chan string, numberOfTakes)
+	out := make(chan string, numberOfTakes+2)
 	go func() {
 		defer close(out)
 		for i := 0; i < numberOfTakes; i++ {

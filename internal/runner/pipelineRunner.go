@@ -8,7 +8,7 @@ import (
 	"runtime"
 )
 
-func Run(ctx context.Context, urls []string, takes int) <-chan string {
+func Run(ctx context.Context, urls []string, takes int, minLen int) <-chan string {
 	channelsFetchedSentences := make([]<-chan string, len(urls))
 	for i, url := range urls {
 		channelsFetchedSentences[i] = pipeline.GenerateSentences(ctx, pipeline.ParseJsonBody(ctx, netRoutines.FetchWord(ctx, url)))
@@ -24,7 +24,7 @@ func Run(ctx context.Context, urls []string, takes int) <-chan string {
 
 	channelsFilteringWords := make([]<-chan string, numCPU)
 	for i := 0; i < numCPU; i++ {
-		channelsFilteringWords[i] = pipeline.FilterWords(ctx, channelFannedWords, 3)
+		channelsFilteringWords[i] = pipeline.FilterWords(ctx, channelFannedWords, minLen)
 	}
 	channelWordsForTaken := fanInOut.FanIn(ctx, channelsFilteringWords...)
 

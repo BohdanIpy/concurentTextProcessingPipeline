@@ -6,7 +6,7 @@ import (
 )
 
 func FanIn[T any](ctx context.Context, channels ...<-chan T) <-chan T {
-	fanIn := make(chan T, len(channels))
+	fanIn := make(chan T, len(channels)+2)
 	var wg sync.WaitGroup
 	transfer := func(c <-chan T) {
 		defer wg.Done()
