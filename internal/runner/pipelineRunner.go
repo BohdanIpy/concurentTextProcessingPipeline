@@ -11,7 +11,7 @@ import (
 func Run(ctx context.Context, urls []string, takes int) <-chan string {
 	channelsFetchedSentences := make([]<-chan string, len(urls))
 	for i, url := range urls {
-		channelsFetchedSentences[i] = pipeline.GenerateSentences(ctx, netRoutines.FetchWord(ctx, url))
+		channelsFetchedSentences[i] = pipeline.GenerateSentences(ctx, pipeline.ParseJsonBody(ctx, netRoutines.FetchWord(ctx, url)))
 	}
 	channelFannedSentences := fanInOut.FanIn(ctx, channelsFetchedSentences...)
 
