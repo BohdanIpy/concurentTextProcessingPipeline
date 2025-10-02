@@ -26,6 +26,33 @@ func extractWord(body string) (string, error) {
 	return "", fmt.Errorf("unrecognized response: %s", string(body))
 }
 
+func ParseJsonBody(ctx context.Context, body <-chan string) <-chan string {
+	word := make(chan string, 1)
+	go func() {
+		defer close(word)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case val, ok := <-body:
+				if !ok {
+					return
+				}
+				parsedWord, err := extractWord(val)
+				if err != nil {
+					continue
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case word <- parsedWord:
+				}
+			}
+		}
+	}()
+	return word
+}
+
 func GenerateSentences(ctx context.Context, words <-chan string) <-chan string {
 	sentences := make(chan string)
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
